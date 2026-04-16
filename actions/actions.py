@@ -29,11 +29,11 @@ class ActionVincularTicket(Action):
             response = requests.post(url, json=payload)
             if response.status_code == 200:
                 data = response.json()
-                dispatcher.utter_message(text=f"✅ ¡Operación exitosa! El ticket {folio} ya tiene sus puntos.")
+                dispatcher.utter_message(text=f"¡Operación exitosa! El ticket {folio} ya tiene sus puntos.")
             else:
                 error_detail = response.json().get("detail", "Error desconocido")
-                dispatcher.utter_message(text=f"❌ No se pudo vincular: {error_detail}")
+                dispatcher.utter_message(text=f"No se pudo vincular: {error_detail}")
         except Exception as e:
-            dispatcher.utter_message(text=f"⚠️ Error de conexión con el servidor: {str(e)}")
+            dispatcher.utter_message(text=f"Error de conexión con el servidor: {str(e)}")
 
         return []
