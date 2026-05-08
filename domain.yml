@@ -4,21 +4,27 @@ intents:
   - saludar
   - despedirse
   - vincular_ticket
+  - consultar_promociones
   - goodbye
   - bot_challenge
 
 entities:
   - folio
   - tarjeta
+  - card
+  - ticket
+  - producto
 
 slots:
   folio:
     type: text
+    influence_conversation: true
     mappings:
       - type: from_entity
         entity: folio
   tarjeta:
     type: text
+    influence_conversation: true
     mappings:
       - type: from_entity
         entity: tarjeta
@@ -33,3 +39,4 @@ responses:
 
 actions:
   - action_vincular_ticket
+  - action_consultar_promociones

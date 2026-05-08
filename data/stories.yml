@@ -4,3 +4,8 @@ stories:
   steps:
   - intent: vincular_ticket
   - action: action_vincular_ticket
+
+- story: consulta de promociones
+  steps:
+    - intent: consultar_promociones
+    - action: action_consultar_promociones

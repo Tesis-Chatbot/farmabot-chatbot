@@ -1,9 +1,33 @@
 version: "3.1"
 nlu:
+- regex: folio
+  examples: |
+    - \d{10,15}
+- regex: tarjeta
+  examples: |
+    - \d{10,15}
+
+- synonym: tarjeta
+  examples: |
+    - tarjeta de lealtad
+    - plastico
+    - número de cuenta
+    - membresia
+
+- synonym: folio
+  examples: |
+    - ticket
+    - recibo
+    - nota de venta
+    - comprobante
+
 - intent: vincular_ticket
   examples: |
-    - vincular ticket [102030](folio) a la tarjeta [554433](card)
-    - registrar puntos del folio [998877](folio) para la tarjeta [112233](card)
+    - vincular el ticket [123456789](folio) a la tarjeta [987654321](tarjeta)
+    - registrar puntos del folio [202603200114](folio) en la membresia [10002000300043](tarjeta)
+    - agrega el ticket [202603200114](folio) a mi plastico [10002000300043](tarjeta)
+    - mi folio es [88776655](folio) y mi tarjeta es [11223344](tarjeta)
+    - por favor vincula el [202603200114](folio) con la [10002000300043](tarjeta)
 
 - intent: goodbye
   examples: |
@@ -15,3 +39,11 @@ nlu:
   examples: |
     - eres un robot?
     - eres humano?
+
+- intent: consultar_promociones
+  examples: |
+    - ¿Qué promociones hay?
+    - dime las ofertas de hoy
+    - ¿Tienen descuentos en [Paracetamol](producto)?
+    - ¿Qué ofertas hay para [Loratadina](producto)?
+    - promociones vigentes
