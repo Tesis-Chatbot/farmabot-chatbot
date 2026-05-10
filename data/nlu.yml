@@ -28,6 +28,8 @@ nlu:
     - agrega el ticket [202603200114](folio) a mi plastico [10002000300043](tarjeta)
     - mi folio es [88776655](folio) y mi tarjeta es [11223344](tarjeta)
     - por favor vincula el [202603200114](folio) con la [10002000300043](tarjeta)
+    - vincula [123456](folio) a tarjeta [654321](tarjeta) en sucursal [5](sucursal)
+    - sucursal [3](sucursal) ticket [789012](folio) tarjeta [345678](tarjeta)
 
 - intent: goodbye
   examples: |
@@ -47,3 +49,40 @@ nlu:
     - ¿Tienen descuentos en [Paracetamol](producto)?
     - ¿Qué ofertas hay para [Loratadina](producto)?
     - promociones vigentes
+    - ¿hay descuento en [Ibuprofeno](producto)?
+    - ¿el [Omeprazol](producto) tiene promoción?
+    - ofertas de [Salbutamol](producto)
+    - quiero saber si [Ketorolaco](producto) está en oferta
+    - ¿[Lorazepam](producto) tiene descuento?
+
+- intent: informar_sucursal
+  examples: |
+    - sucursal [5](sucursal)
+    - [3](sucursal)
+    - la sucursal [2](sucursal)
+    - tienda [1](sucursal)
+    - en la [4](sucursal)
+
+- synonym: Paracetamol
+  examples: |
+    - paracetamol
+    - acetaminofén
+    - tylenol
+    - tempra
+
+- synonym: Ibuprofeno
+  examples: |
+    - ibuprofeno
+    - ibupirac
+    - motrin
+    - advil
+
+- synonym: Omeprazol
+  examples: |
+    - omeprazol
+    - losec
+    - protector gástrico
+
+- regex: sucursal
+  examples: |
+    - \d{1,2}

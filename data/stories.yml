@@ -1,11 +1,25 @@
 version: "3.1"
-stories:
-- story: flujo vinculacion exitosa
-  steps:
-  - intent: vincular_ticket
-  - action: action_vincular_ticket
 
-- story: consulta de promociones
-  steps:
-    - intent: consultar_promociones
-    - action: action_consultar_promociones
+stories:
+  - story: flujo vinculacion con form
+    steps:
+      - intent: vincular_ticket
+      - action: vincular_ticket_form
+      - active_loop: vincular_ticket_form
+      - active_loop: null
+      - action: action_vincular_ticket
+
+  - story: consulta de promociones
+    steps:
+      - intent: consultar_promociones
+      - action: action_consultar_promociones
+
+  - story: saludo
+    steps:
+      - intent: saludar
+      - action: utter_saludar
+
+  - story: despedida
+    steps:
+      - intent: goodbye
+      - action: utter_goodbye

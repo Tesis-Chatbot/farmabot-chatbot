@@ -1,9 +1,9 @@
-from typing import Any, Text, Dict, List
-from rasa_sdk import Action, Tracker
+from typing import Any, Text, Dict, List, Optional
+from rasa_sdk import Action, Tracker, FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
+from rasa_sdk.types import DomainDict
 import requests
-import re  # Necesario para limpiar los números
-
+import re
 
 class ActionVincularTicket(Action):
     def name(self) -> Text:
@@ -13,33 +13,20 @@ class ActionVincularTicket(Action):
             tracker: Tracker,
             domain: Dict[Text, Any]) -> List[Dict[Text, Any]]:
 
-        # 1. Obtener datos de los slots
+        # Obtener slots (ya validados por el form)
         folio_raw = tracker.get_slot("folio")
         tarjeta_raw = tracker.get_slot("tarjeta")
+        sucursal_raw = tracker.get_slot("sucursal")
 
-        # LOG de depuración: Esto aparecerá en la terminal de 'rasa run actions'
         print(f"--- INTENTO DE VINCULACIÓN ---")
-        print(f"DEBUG: Folio recibido: {folio_raw}")
-        print(f"DEBUG: Tarjeta recibida: {tarjeta_raw}")
-
-        # 2. Validación de presencia de datos
-        if not folio_raw or not tarjeta_raw:
-            dispatcher.utter_message(
-                text="⚠️ Lo siento, no pude identificar el folio o la tarjeta. Por favor, asegúrate de escribirlos claramente.")
-            return []
+        print(f"Folio: {folio_raw}")
+        print(f"Tarjeta: {tarjeta_raw}")
+        print(f"Sucursal: {sucursal_raw}")
 
         try:
-            # 3. Limpieza de datos (Extraer solo números)
-            # Esto evita el error de NoneType o de texto mezclado con números
             folio_clean = re.sub(r'\D', '', str(folio_raw))
             tarjeta_clean = re.sub(r'\D', '', str(tarjeta_raw))
-
-            if not folio_clean or not tarjeta_clean:
-                raise ValueError("Los datos no contienen números válidos")
-
-            # 4. Preparar la petición al FastAPI
-            store_id = 1
-            url = "http://127.0.0.1:8000/loyalty/vincular-ticket"
+            store_id = int(re.sub(r'\D', '', str(sucursal_raw)))
 
             payload = {
                 "folio": int(folio_clean),
@@ -47,21 +34,28 @@ class ActionVincularTicket(Action):
                 "card": int(tarjeta_clean)
             }
 
-            # 5. Llamada al backend
-            response = requests.post(url, json=payload, timeout=10)
+            print(f"Payload: {payload}")
+
+            response = requests.post(
+                "http://127.0.0.1:8000/loyalty/vincular-ticket",
+                json=payload,
+                timeout=10
+            )
 
             if response.status_code == 200:
                 dispatcher.utter_message(
-                    text=f"✅ ¡Operación exitosa! El ticket {folio_clean} ha sido vinculado a tu tarjeta.")
+                    text=f"✅ ¡Vinculación exitosa!\n"
+                         f"• Ticket: {folio_clean}\n"
+                         f"• Tarjeta: {tarjeta_clean}\n"
+                         f"• Sucursal: {store_id}"
+                )
             else:
-                error_detail = response.json().get("detail", "Error desconocido en el servidor")
-                dispatcher.utter_message(text=f"❌ No se pudo vincular: {error_detail}")
+                error = response.json().get("detail", "Error desconocido")
+                dispatcher.utter_message(text=f"❌ No se pudo vincular: {error}")
 
-        except ValueError:
-            dispatcher.utter_message(text="❌ Los números de folio o tarjeta no parecen válidos. Inténtalo de nuevo.")
         except Exception as e:
-            print(f"ERROR CRÍTICO: {str(e)}")
-            dispatcher.utter_message(text=f"⚠️ Hubo un error de conexión con el sistema central.")
+            print(f"ERROR: {str(e)}")
+            dispatcher.utter_message(text="⚠️ Error al procesar la vinculación.")
 
         return []
 
@@ -74,27 +68,118 @@ class ActionConsultarPromociones(Action):
             tracker: Tracker,
             domain: Dict[Text, Any]) -> List[Dict[Text, Any]]:
 
+        producto = next(tracker.get_latest_entity_values("producto"), None)
         url = "http://127.0.0.1:8000/medicamentos?store_id=1"
 
         try:
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
                 productos = response.json()
-                # Filtrar solo productos con promociones vigentes
                 con_promo = [p for p in productos if len(p.get("promociones", [])) > 0]
 
                 if not con_promo:
-                    dispatcher.utter_message(text="Por el momento no tenemos promociones activas en esta sucursal.")
-                else:
-                    mensaje = "🎉 **Estas son nuestras promociones actuales:**\n\n"
+                    dispatcher.utter_message(
+                        text="Por el momento no tenemos promociones activas en esta sucursal."
+                    )
+                    return []
+
+                # Si preguntan por un producto específico
+                if producto:
+                    producto_encontrado = None
                     for p in con_promo:
-                        for promo in p["promociones"]:
-                            mensaje += f"• **{p['name']}**: {promo['tipo']} ({promo['valor']})\n"
+                        if producto.lower() in p['name'].lower():
+                            producto_encontrado = p
+                            break
+
+                    if producto_encontrado:
+                        mensaje = f"✅ ¡Sí! {producto_encontrado['name']} está en promoción:\n\n"
+                        for promo in producto_encontrado["promociones"]:
+                            if promo['tipo'] == 'Porcentaje de descuento':
+                                mensaje += f"📌 {float(promo['valor']) * 100:.0f}% de descuento\n"
+                            else:
+                                mensaje += f"📌 {promo['tipo']}: {promo['valor']}\n"
+                    else:
+                        mensaje = f"❌ Lo siento, {producto} NO está en nuestras promociones actuales.\n\n"
+                        mensaje += "Medicamentos en oferta:\n"
+                        for p in con_promo[:5]:
+                            mensaje += f"• {p['name']}\n"
+
                     dispatcher.utter_message(text=mensaje)
+                    return []
+
+                # Mostrar todas las promociones
+                mensaje = "🎉 Estas son nuestras promociones actuales:\n\n"
+                for p in con_promo:
+                    mensaje += f"🔹 {p['name']}\n"
+                    for promo in p["promociones"]:
+                        if promo['tipo'] == 'Porcentaje de descuento':
+                            porcentaje = float(promo['valor']) * 100
+                            mensaje += f"   📌 {porcentaje:.0f}% de descuento\n"
+                        else:
+                            mensaje += f"   📌 {promo['tipo']}: {promo['valor']}\n"
+                    mensaje += "\n"
+
+                mensaje += "¿Te interesa algún medicamento en particular?"
+                dispatcher.utter_message(text=mensaje)
             else:
-                dispatcher.utter_message(text="No pude consultar las promociones. Inténtalo más tarde.")
+                dispatcher.utter_message(
+                    text="No pude consultar las promociones. Inténtalo más tarde."
+                )
         except Exception as e:
             print(f"ERROR EN PROMOS: {str(e)}")
-            dispatcher.utter_message(text="⚠️ Error de conexión al consultar el catálogo.")
+            dispatcher.utter_message(
+                text="⚠️ Error de conexión al consultar el catálogo."
+            )
 
         return []
+
+
+
+
+
+class ValidateVincularTicketForm(FormValidationAction):
+    def name(self) -> Text:
+        return "validate_vincular_ticket_form"
+
+    def validate_folio(
+        self,
+        slot_value: Any,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: DomainDict,
+    ) -> Dict[Text, Any]:
+        """Validar folio."""
+        if slot_value and re.search(r'\d{5,20}', str(slot_value)):
+            return {"folio": slot_value}
+        dispatcher.utter_message(text="❌ El folio no parece válido. Debe contener entre 5 y 20 dígitos.")
+        return {"folio": None}
+
+    def validate_tarjeta(
+        self,
+        slot_value: Any,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: DomainDict,
+    ) -> Dict[Text, Any]:
+        """Validar tarjeta."""
+        if slot_value and re.search(r'\d{5,20}', str(slot_value)):
+            return {"tarjeta": slot_value}
+        dispatcher.utter_message(text="❌ La tarjeta no parece válida. Debe contener entre 5 y 20 dígitos.")
+        return {"tarjeta": None}
+
+    def validate_sucursal(
+        self,
+        slot_value: Any,
+        dispatcher: CollectingDispatcher,
+        tracker: Tracker,
+        domain: DomainDict,
+    ) -> Dict[Text, Any]:
+        """Validar sucursal."""
+        try:
+            sucursal = int(re.sub(r'\D', '', str(slot_value)))
+            if 1 <= sucursal <= 99:
+                return {"sucursal": str(sucursal)}
+        except:
+            pass
+        dispatcher.utter_message(text="❌ Por favor indica un número de sucursal válido (1-99).")
+        return {"sucursal": None}
